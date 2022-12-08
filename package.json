@@ -1,0 +1,29 @@
+{
+  "name": "logseq-jupyter",
+  "version": "0.0.1",
+  "description": "Use Jupyter kernels from within logseq",
+  "main": "dist/index.html",
+  "scripts": {
+    "build": "parcel build --public-url . --no-source-maps index.html",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "logseq",
+    "plugin",
+    "jupyter",
+    "notebook",
+    "python"
+  ],
+  "author": "aarimond",
+  "license": "MIT",
+  "dependencies": {
+    "@logseq/libs": "^0.0.12"
+  },
+  "devDependencies": {
+    "parcel": "2.0.0-beta.2",
+    "typescript": "^4.9.4"
+  },
+  "logseq": {
+    "id": "aarimond-logseq-jupyter"
+  }
+}
