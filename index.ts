@@ -21,7 +21,7 @@ function showJupyterError(msg: string, status: 'warning' | 'error', timeout?: nu
 }
 
 
-async function runJupyterCode(baseUrl: string, token: string, code: string) {
+async function runJupyterCode(baseUrl: string, token: string, code: string, kernelMessageHandler: (msg: KernelMessage.IIOPubMessage) => void) {
   PageConfig.setOption('baseUrl', baseUrl);
   PageConfig.setOption('token', token);
 
@@ -34,18 +34,10 @@ async function runJupyterCode(baseUrl: string, token: string, code: string) {
 
   const future = kernel.requestExecute({ code });
 
-  var output;
-  future.onIOPub = (msg: KernelMessage.IIOPubMessage) => {
-    console.log(msg);
-    if (KernelMessage.isExecuteResultMsg(msg)) {
-      output = msg.content.data['text/plain']
-    }
-  };
+  future.onIOPub = kernelMessageHandler;
 
   await future.done;
   await kernel.shutdown();
-
-  return output;
 }
 
 
@@ -79,14 +71,29 @@ async function runJupyterCommand() {
       return;
     }
 
-    runJupyterCode(baseUrl, token, code).then(output => {
-      logseq.Editor.insertBlock(
-        block.uuid,
-        "``` shell\n#Output:\n" + output + "\n```\n", { before: false }
-      ).then(
-        () => logseq.Editor.exitEditingMode()
-      );
-    });
+    runJupyterCode(baseUrl, token, code, (msg: KernelMessage.IIOPubMessage) => {
+      console.log(msg);
+      var output;
+      if (KernelMessage.isExecuteResultMsg(msg)) {
+        output = msg.content.data['text/plain'];
+        logseq.Editor.insertBlock(
+          block.uuid,
+          "``` shell\n#Output:\n" + output + "\n```\n", { before: false }
+        ).then(
+          () => logseq.Editor.exitEditingMode()
+        );
+
+      }
+      if (KernelMessage.isErrorMsg(msg)) {
+        output = msg.content.evalue; 
+        logseq.Editor.insertBlock(
+          block.uuid,
+          "``` shell\n#Error:\n" + output + "\n```\n", { before: false }
+        ).then(
+          () => logseq.Editor.exitEditingMode()
+        );
+      }
+    }); 
 
   }).catch(err => {
     console.log(err);
