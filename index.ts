@@ -4,6 +4,7 @@ import { KernelManager, KernelMessage } from '@jupyterlab/services';
 import { ServerConnection } from "@jupyterlab/services";
 import { PageConfig } from '@jupyterlab/coreutils';
 
+import {  BlockEntity } from "@logseq/libs/dist/LSPlugin.user";
 
 function extractCodeFromBlockContent(content: string): string | undefined {
   // TODO be less rigid on where to place "python"
@@ -51,14 +52,14 @@ async function runJupyterCommand() {
 
   const code = extractCodeFromBlockContent(block.content);
   if (code === undefined) {
-    showJupyterError('Not able to select code', 'warning');
+    showJupyterError("Not able to select code", "warning");
     return;
   }
 
   logseq.Editor.getBlockProperty(block.uuid, 'jupyter').then((jupyterProperty: string | null) => {
 
     if (!jupyterProperty) {
-      showJupyterError("Not able to read property 'jupyter' from selected block.", 'warning');
+      showJupyterError("Not able to read property 'jupyter' from selected block.", "warning");
       return;
     }
 
@@ -67,33 +68,44 @@ async function runJupyterCommand() {
     const token = url.searchParams.get('token');
 
     if (!(baseUrl && token)) {
-      showJupyterError('Not able to read baseUrl and token from block properties.', 'error');
+      showJupyterError("Not able to read baseUrl and token from block properties.", "error");
       return;
     }
 
-    runJupyterCode(baseUrl, token, code, (msg: KernelMessage.IIOPubMessage) => {
-      console.log(msg);
-      var output;
-      if (KernelMessage.isExecuteResultMsg(msg)) {
-        output = msg.content.data['text/plain'];
-        logseq.Editor.insertBlock(
-          block.uuid,
-          "``` shell\n#Output:\n" + output + "\n```\n", { before: false }
-        ).then(
-          () => logseq.Editor.exitEditingMode()
-        );
+    logseq.Editor.insertBlock(block.uuid, "", { before: false }).then(
+      (newBlock: BlockEntity | null) => {
 
+        if (newBlock === null) {
+          showJupyterError("Not able to add output block", "error");
+          return
+        }
+
+        var stream_output : Array<string> = [];
+        var executionFinished: boolean = false;
+
+        runJupyterCode(baseUrl, token, code, (msg: KernelMessage.IIOPubMessage) => {
+          console.log(msg);
+          if (KernelMessage.isExecuteResultMsg(msg)) {
+            stream_output.push(msg.content.data['text/plain'].toString());
+            executionFinished = true;
+          }
+          if (KernelMessage.isErrorMsg(msg)) {
+            stream_output.push(msg.content.evalue.toString());
+            executionFinished = true;
+          }
+          if (KernelMessage.isStreamMsg(msg)){
+            stream_output.push(msg.content.text);
+          }
+          var output = stream_output.join('');
+          console.log(output);
+          logseq.Editor.updateBlock(
+            newBlock.uuid,
+            "``` shell\n#Output:\n" + output + "\n```\n", 
+          ).then(() => executionFinished ? logseq.Editor.exitEditingMode() : undefined)
+        }); 
       }
-      if (KernelMessage.isErrorMsg(msg)) {
-        output = msg.content.evalue; 
-        logseq.Editor.insertBlock(
-          block.uuid,
-          "``` shell\n#Error:\n" + output + "\n```\n", { before: false }
-        ).then(
-          () => logseq.Editor.exitEditingMode()
-        );
-      }
-    }); 
+    )
+
 
   }).catch(err => {
     console.log(err);
