@@ -1,6 +1,6 @@
 {
   "name": "logseq-jupyter",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Use Jupyter kernels from within logseq",
   "main": "dist/index.html",
   "scripts": {
@@ -18,7 +18,7 @@
   "license": "MIT",
   "dependencies": {
     "@jupyterlab/services": "^6.5.1",
-    "@logseq/libs": "^0.0.12"
+    "@logseq/libs": "^0.0.14"
   },
   "devDependencies": {
     "parcel": "2.0.0-beta.2",

@@ -4,7 +4,7 @@ import { KernelManager, KernelMessage } from '@jupyterlab/services';
 import { ServerConnection } from "@jupyterlab/services";
 import { PageConfig } from '@jupyterlab/coreutils';
 
-import {  BlockEntity } from "@logseq/libs/dist/LSPlugin.user";
+import {  BlockEntity, SettingSchemaDesc } from "@logseq/libs/dist/LSPlugin.user";
 
 function extractCodeFromBlockContent(content: string): string | undefined {
   // TODO be less rigid on where to place "python"
@@ -114,7 +114,29 @@ async function runJupyterCommand() {
 }
 
 async function main(): Promise<void> {
-  logseq.Editor.registerSlashCommand('jupyter', runJupyterCommand);
+  // logseq.Editor.registerSlashCommand('jupyter', runJupyterCommand);
+  const settings: SettingSchemaDesc[] = [
+    {
+      key: "jupyter_run_cell",
+      description: "Keybinding to run a currently selected block as jupyter code cell",
+      type: "string",
+      default: "r c",
+      title: "Run Block as Jupyter Cell",
+    }
+  ];
+  logseq.useSettingsSchema(settings);
+
+  if (logseq.settings !== undefined) {
+    logseq.App.registerCommandPalette(
+
+      {
+        key: "run_jupyter_cell",
+        label: "Run Block as Jupyter Cell",
+        keybinding : { binding: logseq.settings.jupyter_run_cell },
+      },
+      runJupyterCommand 
+    )
+  }
 }
 
 // bootstrap
