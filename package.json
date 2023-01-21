@@ -1,6 +1,6 @@
 {
   "name": "logseq-jupyter",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Use Jupyter kernels from within logseq",
   "main": "dist/index.html",
   "scripts": {

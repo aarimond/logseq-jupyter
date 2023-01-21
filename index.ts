@@ -6,12 +6,6 @@ import { PageConfig } from '@jupyterlab/coreutils';
 
 import {  BlockEntity, SettingSchemaDesc } from "@logseq/libs/dist/LSPlugin.user";
 
-function extractCodeFromBlockContent(content: string): string | undefined {
-  // TODO be less rigid on where to place "python"
-  const codeRegex = /```\s+python\n(?<code>[\s\S]*?)\n```/m;
-  return content.match(codeRegex)?.groups?.code;
-}
-
 
 function showJupyterError(msg: string, status: 'warning' | 'error', timeout?: number) {
   logseq.UI.showMsg(`
@@ -19,6 +13,38 @@ function showJupyterError(msg: string, status: 'warning' | 'error', timeout?: nu
       [:h2.text-xl "logseq-jupyter"]
       [:div.p-2 "${msg}"]]
   `, status, { timeout: timeout ? timeout : 5000 });
+}
+
+
+async function serverInfoFromSettings() {
+  if (logseq.settings === undefined) {
+    // should not happen actually
+    throw new Error('No settings given for logseq-jupyter plugin.')
+  }
+
+  if (!logseq.settings.jupyter_server_url) {
+    throw new Error("Jupyter Server URL not set. Check your logseq-jupyter plugin settings.")
+  }
+  var url: URL;
+  try {
+    url = new URL(logseq.settings.jupyter_server_url);
+  } catch (e) {
+    throw new Error("Given Jupyter Server URL not valid. Check your logseq-jupyter plugin settings.") 
+  }
+  
+  const baseUrl = url.origin;  // e.g. "http://localhost:8888"
+  const token = url.searchParams.get('token');
+  if (!(baseUrl && token)) {
+    throw new Error("Given Jupyter Server URL not valid. Check your logseq-jupyter plugin settings.") 
+  }
+  return {baseUrl, token};
+}
+
+
+function extractCodeFromBlockContent(content: string): string | undefined {
+  // TODO be less rigid on where to place "python"
+  const codeRegex = /```\s+python\n(?<code>[\s\S]*?)\n```/m;
+  return content.match(codeRegex)?.groups?.code;
 }
 
 
@@ -56,21 +82,7 @@ async function runJupyterCommand() {
     return;
   }
 
-  logseq.Editor.getBlockProperty(block.uuid, 'jupyter').then((jupyterProperty: string | null) => {
-
-    if (!jupyterProperty) {
-      showJupyterError("Not able to read property 'jupyter' from selected block.", "warning");
-      return;
-    }
-
-    const url = new URL(jupyterProperty);
-    const baseUrl = url.origin;  // e.g. "http://localhost:8888"
-    const token = url.searchParams.get('token');
-
-    if (!(baseUrl && token)) {
-      showJupyterError("Not able to read baseUrl and token from block properties.", "error");
-      return;
-    }
+  serverInfoFromSettings().then(({baseUrl, token}) => {
 
     logseq.Editor.insertBlock(block.uuid, "", { before: false }).then(
       (newBlock: BlockEntity | null) => {
@@ -106,10 +118,9 @@ async function runJupyterCommand() {
       }
     )
 
-
   }).catch(err => {
     console.log(err);
-    showJupyterError('Problems reading properties from block.', 'error');
+    showJupyterError(err, "error");
   })
 }
 
@@ -122,6 +133,13 @@ async function main(): Promise<void> {
       type: "string",
       default: "r c",
       title: "Run Block as Jupyter Cell",
+    },
+    {
+      key: "jupyter_server_url",
+      description: "URL to running Jupyter Server. Like http://{host}:{port}/?token={token}",
+      type: "string",
+      default: "",
+      title: "Jupyter Server URL",
     }
   ];
   logseq.useSettingsSchema(settings);
