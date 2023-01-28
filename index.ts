@@ -97,6 +97,7 @@ async function runJupyterCommand() {
 
         runJupyterCode(baseUrl, token, code, (msg: KernelMessage.IIOPubMessage) => {
           console.log(msg);
+          if (KernelMessage.isStatusMsg(msg)) return;
           if (KernelMessage.isExecuteResultMsg(msg)) {
             stream_output.push(msg.content.data['text/plain'].toString());
             executionFinished = true;
@@ -108,12 +109,15 @@ async function runJupyterCommand() {
           if (KernelMessage.isStreamMsg(msg)){
             stream_output.push(msg.content.text);
           }
+
           var output = stream_output.join('');
           console.log(output);
           logseq.Editor.updateBlock(
             newBlock.uuid,
-            "``` shell\n#Output:\n" + output + "\n```\n", 
-          ).then(() => executionFinished ? logseq.Editor.exitEditingMode() : undefined)
+            `
+              <div class="jupyter-output">${output}</div>
+            `
+          ).then(() => logseq.Editor.exitEditingMode())
         }); 
       }
     )
@@ -155,6 +159,12 @@ async function main(): Promise<void> {
       runJupyterCommand 
     )
   }
+  
+  logseq.provideStyle(`
+    .jupyter-output {
+        font-family:  "Fira Code", Monaco, Menlo, Consolas, "COURIER NEW", monospace;
+    }
+  `);
 }
 
 // bootstrap
